@@ -103,7 +103,7 @@ struct SettingsView: View {
                                 Text("Download Kernelcache")
                             }
                         }
-                        .disabled(dlingkcache || !mgr.dsready || (!mgr.vfsready && !mgr.sbxready))
+                        .disabled(dlingkcache || !mgr.dsready)
                                
                         LabeledContent(content: {
                             Button(action: {
@@ -130,7 +130,7 @@ struct SettingsView: View {
                     HeaderLabel(text: "Kernelcache", icon: "cpu")
                 } footer: {
                     if (!mgr.hasOffsets && (!mgr.dsready || (!mgr.vfsready && !mgr.sbxready))) {
-                        Text("NOTE: You need to Run the Exploit and have Initialized the System before you can download the Kernelcache.\n\nDeleting and redownloading kernelcache may fix some issues. Try doing this before opening a GitHub issue or asking for support in our [Discord](https://discord.gg/gw8PcRF3Jr) server.")
+                        Text("NOTE: You need to Run the Exploit before you can download the Kernelcache.\n\nDeleting and redownloading kernelcache may fix some issues. Try doing this before opening a GitHub issue or asking for support in our [Discord](https://discord.gg/gw8PcRF3Jr) server.")
                     } else {
                         Text("Deleting and redownloading kernelcache may fix some issues. Try doing this before opening a GitHub issue or asking for support in our [Discord](https://discord.gg/gw8PcRF3Jr) server.")
                     }
