@@ -22,7 +22,7 @@ struct TweaksView: View {
                     NavigationLink("Liquid Glass", destination: LiquidGlassView())
                         .disabled(!mgr.vfsready)
                     if doubleSystemVersion() < 26.0 {
-                        NavigationLink("SB Customizer", destination: SpringBoardView())
+                        NavigationLink("SB Customizer", destination: SpringBoardView(mgr: mgr))
                             .disabled(!mgr.vfsready)
                     }
                 }
