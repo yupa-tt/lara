@@ -167,6 +167,12 @@ struct santanderdirview: View {
                             }
 
                             Button {
+                                share(entry)
+                            } label: {
+                                Label("Share", systemImage: "square.and.arrow.up")
+                            }
+
+                            Button {
                                 renameitem = entry
                             } label: {
                                 Label("Rename", systemImage: "pencil")
@@ -602,6 +608,24 @@ struct santanderdirview: View {
         } catch {
             msg = santandermsg(title: "Delete Failed", text: error.localizedDescription)
         }
+    }
+
+    @MainActor
+    private func share(_ entry: santanderitem) {
+        guard readsbx else {
+            msg = santandermsg(title: "Share Unavailable", text: "Share is only supported in SBX mode.")
+            return
+        }
+        guard !entry.isdir else {
+            msg = santandermsg(title: "Share Unavailable", text: "Sharing folders is not supported.")
+            return
+        }
+        guard FileManager.default.isReadableFile(atPath: entry.path) else {
+            msg = santandermsg(title: "Share Failed", text: "File is not readable.")
+            return
+        }
+
+        presentShareSheet(with: URL(fileURLWithPath: entry.path))
     }
 
     private func upload(_ url: URL) {

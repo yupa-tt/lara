@@ -774,6 +774,39 @@ final class laramgr: ObservableObject {
             }
         }
     }
+
+    func stashKRWToLaunchd(completion: ((Bool) -> Void)? = nil) {
+        guard dsready, !rcrunning else {
+            completion?(false)
+            return
+        }
+
+        rcrunning = true
+        rcLastError = nil
+        logmsg("(persist) manually transferring KRW primitives to launchd...")
+
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let success = transfer_krw_to_launchd()
+
+            DispatchQueue.main.async {
+                guard let self else { return }
+                self.rcrunning = false
+                if success {
+                    self.rcLastError = nil
+                    self.logmsg("(persist) manual KRW transfer to launchd succeeded")
+                } else {
+                    let error = RemoteCall.lastInitError()
+                    self.rcLastError = error
+                    if let error, !error.isEmpty {
+                        self.logmsg("(persist) manual KRW transfer to launchd failed: \(error)")
+                    } else {
+                        self.logmsg("(persist) manual KRW transfer to launchd failed")
+                    }
+                }
+                completion?(success)
+            }
+        }
+    }
     
     //  params:
     //  - name: function to call
