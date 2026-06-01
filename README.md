@@ -88,6 +88,9 @@ Important Notes:
 - Grid App Switcher
 - Performance HUD
 - JIT Enabler (only for apps with `get-task-allow`)
+- OTA Update Disabler
+- Screen Time Disabler 
+  
 
 ### Coming Soon
 - App Decrypt
