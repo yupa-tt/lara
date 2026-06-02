@@ -16,6 +16,10 @@ import SwiftUI
 struct StatusBarView: View {
     @ObservedObject var mgr: laramgr
 
+    init(mgr: laramgr) {
+        self.mgr = mgr
+    }
+
     let fm = FileManager.default
 
     @State private var cellularServiceEnabled: Bool = StatusManager.sharedInstance().isCellularServiceOverridden()
