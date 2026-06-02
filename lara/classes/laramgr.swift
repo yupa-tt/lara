@@ -251,6 +251,7 @@ final class laramgr: ObservableObject {
                 if self.sbxready {
                     self.sbxfailed = false
                     self.logmsg("\nsandbox escape ready!\n")
+                    setupStatusBar()
                 } else {
                     self.sbxfailed = true
                     self.logmsg("\nsandbox escape failed.\n")
