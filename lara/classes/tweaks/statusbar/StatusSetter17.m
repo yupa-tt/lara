@@ -3,14 +3,16 @@
 //  lara
 //
 //  Based on StatusSetter16_1 from Cowabunga (MIT License)
-//  Adapted for iOS 17+:
-//    - isMDCMode チェックを全削除
-//    - statusBarOverridesEditing ファイル書き込みパスを全削除
-//    - 常に UIStatusBarServer を直接呼び出す
-//      (lara はサンドボックス脱出済みなので SpringBoard への XPC 通信が可能)
+//  Adapted for lara:
+//    - UIStatusBarServer 直接呼び出しを削除
+//    - Cowabunga の MDCモードと同じく statusBarOverrides ファイルへの
+//      書き込みで実装（lara は vfs でフルディスクR/W可能）
+//    - applyChanges: は statusBarOverrides に構造体をバイナリで書き出す
+//    - getOverrides: は statusBarOverrides を読むか、なければゼロ初期化した構造体を返す
 //
 
 #import "StatusSetter17.h"
+#import <Foundation/Foundation.h>
 
 // MARK: - StatusBarItem enum
 
@@ -23,17 +25,13 @@ typedef NS_ENUM(int, StatusBarItem) {
     SecondaryCellularSignalStrengthStatusBarItem = 5,
     CellularServiceStatusBarItem                = 6,
     SecondaryCellularServiceStatusBarItem       = 7,
-    // 8
     CellularDataNetworkStatusBarItem            = 9,
     SecondaryCellularDataNetworkStatusBarItem   = 10,
-    // 11
     MainBatteryStatusBarItem                    = 12,
     ProminentlyShowBatteryDetailStatusBarItem   = 13,
-    // 14, 15
     BluetoothStatusBarItem                      = 16,
     TTYStatusBarItem                            = 17,
     AlarmStatusBarItem                          = 18,
-    // 19, 20
     LocationStatusBarItem                       = 21,
     RotationLockStatusBarItem                   = 22,
     CameraUseStatusBarItem                      = 23,
@@ -43,18 +41,12 @@ typedef NS_ENUM(int, StatusBarItem) {
     StudentStatusBarItem                        = 27,
     MicrophoneUseStatusBarItem                  = 28,
     VPNStatusBarItem                            = 29,
-    // 30-37
     LiquidDetectionStatusBarItem                = 38,
     VoiceControlStatusBarItem                   = 39,
-    // 40-43
     Extra1StatusBarItem                         = 44,
 };
 
-typedef NS_ENUM(unsigned int, BatteryState) {
-    BatteryStateUnplugged = 0
-};
-
-// MARK: - StatusBarRawData struct
+// MARK: - Structs
 
 typedef struct {
     bool itemIsEnabled[45];
@@ -116,8 +108,6 @@ typedef struct {
     unsigned int extra1 : 1;
 } StatusBarRawData;
 
-// MARK: - StatusBarOverrideData struct
-
 typedef struct {
     bool overrideItemIsEnabled[45];
     char padding;
@@ -160,47 +150,41 @@ typedef struct {
     StatusBarRawData values;
 } StatusBarOverrideData;
 
-// MARK: - UIStatusBarServer private interface
-
-@class UIStatusBarServer;
-
-@protocol UIStatusBarServerClient
-- (void)statusBarServer:(UIStatusBarServer *)arg1 didReceiveDoubleHeightStatusString:(NSString *)arg2 forStyle:(long long)arg3;
-- (void)statusBarServer:(UIStatusBarServer *)arg1 didReceiveGlowAnimationState:(bool)arg2 forStyle:(long long)arg3;
-- (void)statusBarServer:(UIStatusBarServer *)arg1 didReceiveStatusBarData:(const StatusBarRawData *)arg2 withActions:(int)arg3;
-- (void)statusBarServer:(UIStatusBarServer *)arg1 didReceiveStyleOverrides:(int)arg2;
-@end
-
-@interface UIStatusBarServer : NSObject
-@property (nonatomic, strong) id<UIStatusBarServerClient> statusBar;
-+ (void)postStatusBarOverrideData:(StatusBarOverrideData *)arg1;
-+ (void)permanentizeStatusBarOverrideData;
-+ (StatusBarOverrideData *)getStatusBarOverrideData;
-@end
+static NSString *const kOverridesPath = @"/var/mobile/Library/SpringBoard/statusBarOverrides";
 
 // MARK: - StatusSetter17 implementation
 
 @implementation StatusSetter17
 
-// lara はサンドボックス脱出済みのため常に UIStatusBarServer を直接呼び出す。
-// Cowabunga の isMDCMode チェックと statusBarOverridesEditing 書き込みパスは不要。
+// Cowabunga の MDCモードと同じ仕組み：
+// 構造体をバイナリで statusBarOverrides に書き出す。
+// lara は vfs でフルディスクR/W可能なので UIStatusBarServer 不要。
+// 反映には respring が必要（StatusBarView の Respring ボタンで対応）。
 - (void)applyChanges:(StatusBarOverrideData *)overrides {
-    [UIStatusBarServer postStatusBarOverrideData:overrides];
-    [UIStatusBarServer permanentizeStatusBarOverrideData];
+    NSMutableData *data = [NSMutableData dataWithBytes:overrides length:sizeof(StatusBarOverrideData)];
+    // Cowabunga と同じ 256バイトのパディングを末尾に追加
+    char padding[256] = {'\0'};
+    [data appendBytes:padding length:sizeof(padding)];
+    [data writeToFile:kOverridesPath atomically:YES];
 }
 
 - (StatusBarOverrideData *)getOverrides {
-    return [UIStatusBarServer getStatusBarOverrideData];
+    NSData *data = [NSData dataWithContentsOfFile:kOverridesPath];
+    if (data && data.length >= sizeof(StatusBarOverrideData)) {
+        NSMutableData *mutable = [NSMutableData dataWithLength:sizeof(StatusBarOverrideData)];
+        StatusBarOverrideData *input = [mutable mutableBytes];
+        memcpy(input, data.bytes, sizeof(StatusBarOverrideData));
+        return input;
+    }
+    // ファイルがなければゼロ初期化した構造体を返す
+    NSMutableData *empty = [NSMutableData dataWithLength:sizeof(StatusBarOverrideData)];
+    return [empty mutableBytes];
 }
 
 // MARK: - Carrier
 
-- (bool)isCarrierOverridden {
-    return [self getOverrides]->overrideServiceString == 1;
-}
-- (NSString *)getCarrierOverride {
-    return @([self getOverrides]->values.serviceString);
-}
+- (bool)isCarrierOverridden { return [self getOverrides]->overrideServiceString == 1; }
+- (NSString *)getCarrierOverride { return @([self getOverrides]->values.serviceString); }
 - (void)setCarrier:(NSString *)text {
     StatusBarOverrideData *o = [self getOverrides];
     o->overrideServiceString = 1;
@@ -214,12 +198,8 @@ typedef struct {
     [self applyChanges:o];
 }
 
-- (bool)isSecondaryCarrierOverridden {
-    return [self getOverrides]->overrideSecondaryServiceString == 1;
-}
-- (NSString *)getSecondaryCarrierOverride {
-    return @([self getOverrides]->values.secondaryServiceString);
-}
+- (bool)isSecondaryCarrierOverridden { return [self getOverrides]->overrideSecondaryServiceString == 1; }
+- (NSString *)getSecondaryCarrierOverride { return @([self getOverrides]->values.secondaryServiceString); }
 - (void)setSecondaryCarrier:(NSString *)text {
     StatusBarOverrideData *o = [self getOverrides];
     o->overrideSecondaryServiceString = 1;
@@ -235,12 +215,8 @@ typedef struct {
 
 // MARK: - Service Badge
 
-- (bool)isPrimaryServiceBadgeOverridden {
-    return [self getOverrides]->overridePrimaryServiceBadgeString == 1;
-}
-- (NSString *)getPrimaryServiceBadgeOverride {
-    return @([self getOverrides]->values.primaryServiceBadgeString);
-}
+- (bool)isPrimaryServiceBadgeOverridden { return [self getOverrides]->overridePrimaryServiceBadgeString == 1; }
+- (NSString *)getPrimaryServiceBadgeOverride { return @([self getOverrides]->values.primaryServiceBadgeString); }
 - (void)setPrimaryServiceBadge:(NSString *)text {
     StatusBarOverrideData *o = [self getOverrides];
     o->overridePrimaryServiceBadgeString = 1;
@@ -253,12 +229,8 @@ typedef struct {
     [self applyChanges:o];
 }
 
-- (bool)isSecondaryServiceBadgeOverridden {
-    return [self getOverrides]->overrideSecondaryServiceBadgeString == 1;
-}
-- (NSString *)getSecondaryServiceBadgeOverride {
-    return @([self getOverrides]->values.secondaryServiceBadgeString);
-}
+- (bool)isSecondaryServiceBadgeOverridden { return [self getOverrides]->overrideSecondaryServiceBadgeString == 1; }
+- (NSString *)getSecondaryServiceBadgeOverride { return @([self getOverrides]->values.secondaryServiceBadgeString); }
 - (void)setSecondaryServiceBadge:(NSString *)text {
     StatusBarOverrideData *o = [self getOverrides];
     o->overrideSecondaryServiceBadgeString = 1;
@@ -470,7 +442,7 @@ typedef struct {
     [self applyChanges:o];
 }
 
-// MARK: - Item Visibility (hide/show)
+// MARK: - Item Visibility
 
 - (bool)isClockHidden { return [self getOverrides]->overrideItemIsEnabled[TimeStatusBarItem] == 1; }
 - (void)hideClock:(bool)hidden {
@@ -506,9 +478,8 @@ typedef struct {
 
 - (bool)isWiFiHidden { return [self getOverrides]->overrideItemIsEnabled[BluetoothStatusBarItem - 2] == 1; }
 - (void)hideWiFi:(bool)hidden {
-    // WiFi は独立した StatusBarItem 番号を持たないため BluetoothStatusBarItem-2 を使用
     StatusBarOverrideData *o = [self getOverrides];
-    int idx = BluetoothStatusBarItem - 2; // = 14
+    int idx = BluetoothStatusBarItem - 2;
     if (hidden) { o->overrideItemIsEnabled[idx] = 1; o->values.itemIsEnabled[idx] = 0; }
     else        { o->overrideItemIsEnabled[idx] = 0; }
     [self applyChanges:o];
