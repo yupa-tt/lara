@@ -8,13 +8,13 @@ import Foundation
 private let kOverridesPath = "/var/mobile/Library/SpringBoard/statusBarOverrides"
 
 func setupStatusBar() {
-    StatusSetter17.setWriteBlock({ ptr, len in
+    StatusSetter17.setWrite({ ptr, len in
         guard let ptr = ptr else { return false }
         let data = Data(bytes: ptr, count: Int(len))
         let result = laramgr.shared.lara_overwritefile(target: kOverridesPath, data: data)
         return result.ok
 
-    }, readBlock: { ptr, len in
+    }, read: { ptr, len in
         guard let ptr = ptr else { return false }
         guard let data = laramgr.shared.vfsread(path: kOverridesPath, maxSize: Int(len)) else { return false }
         let copyLen = min(data.count, Int(len))
