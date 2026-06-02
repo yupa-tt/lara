@@ -305,9 +305,19 @@ static BOOL (^g_existsBlock)(void)                         = nil;
 - (bool)isSecondaryDataNetworkTypeOverridden { return [self getOverrides]->overrideSecondaryDataNetworkType == 1; }
 - (int)getSecondaryDataNetworkTypeOverride { return (int)[self getOverrides]->values.secondaryDataNetworkType; }
 - (void)setSecondaryDataNetworkType:(int)identifier {
-    StatusBarOverrideData *o = [self getOverrides]; o->overrideSecondaryDataNetworkType = 1; o->values.secondaryDataNetworkType = identifier; [self applyChanges:o];
+    StatusBarOverrideData *o = [self getOverrides];
+    o->overrideItemIsEnabled[SecondaryCellularDataNetworkStatusBarItem] = 1;
+    o->values.itemIsEnabled[SecondaryCellularDataNetworkStatusBarItem] = 1;
+    o->overrideSecondaryDataNetworkType = 1;
+    o->values.secondaryDataNetworkType = identifier;
+    [self applyChanges:o];
 }
-- (void)unsetSecondaryDataNetworkType { StatusBarOverrideData *o = [self getOverrides]; o->overrideSecondaryDataNetworkType = 0; [self applyChanges:o]; }
+- (void)unsetSecondaryDataNetworkType {
+    StatusBarOverrideData *o = [self getOverrides];
+    o->overrideSecondaryDataNetworkType = 0;
+    o->overrideItemIsEnabled[SecondaryCellularDataNetworkStatusBarItem] = 0;
+    [self applyChanges:o];
+}
 
 - (bool)isBatteryCapacityOverridden { return [self getOverrides]->overrideBatteryCapacity == 1; }
 - (int)getBatteryCapacityOverride { return [self getOverrides]->values.batteryCapacity; }
@@ -333,9 +343,19 @@ static BOOL (^g_existsBlock)(void)                         = nil;
 - (bool)isSecondaryGsmSignalStrengthBarsOverridden { return [self getOverrides]->overrideSecondaryGsmSignalStrengthBars == 1; }
 - (int)getSecondaryGsmSignalStrengthBarsOverride { return [self getOverrides]->values.secondaryGsmSignalStrengthBars; }
 - (void)setSecondaryGsmSignalStrengthBars:(int)s {
-    StatusBarOverrideData *o = [self getOverrides]; o->overrideSecondaryGsmSignalStrengthBars = 1; o->values.secondaryGsmSignalStrengthBars = s; [self applyChanges:o];
+    StatusBarOverrideData *o = [self getOverrides];
+    o->values.secondaryGsmSignalStrengthBars = s;
+    o->overrideSecondaryGsmSignalStrengthBars = 1;
+    o->overrideItemIsEnabled[SecondaryCellularSignalStrengthStatusBarItem] = 1;
+    o->values.itemIsEnabled[SecondaryCellularSignalStrengthStatusBarItem] = 1;
+    [self applyChanges:o];
 }
-- (void)unsetSecondaryGsmSignalStrengthBars { StatusBarOverrideData *o = [self getOverrides]; o->overrideSecondaryGsmSignalStrengthBars = 0; [self applyChanges:o]; }
+- (void)unsetSecondaryGsmSignalStrengthBars {
+    StatusBarOverrideData *o = [self getOverrides];
+    o->overrideSecondaryGsmSignalStrengthBars = 0;
+    o->overrideItemIsEnabled[SecondaryCellularSignalStrengthStatusBarItem] = 0;
+    [self applyChanges:o];
+}
 
 - (bool)isDisplayingRawWiFiSignal { return [self getOverrides]->values.displayRawWifiSignal == 1; }
 - (void)displayRawWifiSignal:(bool)displaying {
