@@ -151,34 +151,34 @@ typedef struct {
 
 // MARK: - Function pointer storage
 
-static StatusBarWriteFunc  g_writeFunc  = NULL;
-static StatusBarReadFunc   g_readFunc   = NULL;
-static StatusBarExistsFunc g_existsFunc = NULL;
+static BOOL (^g_writeBlock)(const void *data, NSUInteger len) = nil;
+static BOOL (^g_readBlock)(void *buf, NSUInteger len)       = nil;
+static BOOL (^g_existsBlock)(void)                         = nil;
 
 // MARK: - StatusSetter17
 
 @implementation StatusSetter17
 
-+ (void)setWriteFunc:(StatusBarWriteFunc)writeFunc
-           readFunc:(StatusBarReadFunc)readFunc
-         existsFunc:(StatusBarExistsFunc)existsFunc {
-    g_writeFunc  = writeFunc;
-    g_readFunc   = readFunc;
-    g_existsFunc = existsFunc;
++ (void)setWriteBlock:(BOOL (^)(const void *data, NSUInteger len))writeBlock
+           readBlock:(BOOL (^)(void *buf, NSUInteger len))readBlock
+         existsBlock:(BOOL (^)(void))existsBlock {
+    g_writeBlock  = [writeBlock copy];
+    g_readBlock   = [readBlock copy];
+    g_existsBlock = [existsBlock copy];
 }
 
 // Cowabunga MDCモードと同じ仕組み：
 // 構造体 + 256バイトパディングを statusBarOverrides に書き出す。
 // 書き込みは Swift 側の sbxoverwrite 経由（関数ポインタで注入）。
 - (void)applyChanges:(StatusBarOverrideData *)overrides {
-    if (!g_writeFunc) { NSLog(@"[StatusSetter17] writeFunc not set"); return; }
+    if (!g_writeBlock) { NSLog(@"[StatusSetter17] writeBlock not set"); return; }
 
     // Cowabunga と同じく末尾に 256バイトのパディングを付ける
     size_t totalLen = sizeof(StatusBarOverrideData) + 256;
     uint8_t *buf = (uint8_t *)calloc(1, totalLen);
     if (!buf) return;
     memcpy(buf, overrides, sizeof(StatusBarOverrideData));
-    g_writeFunc(buf, totalLen);
+    g_writeBlock(buf, (NSUInteger)totalLen);
     free(buf);
 }
 
@@ -186,8 +186,8 @@ static StatusBarExistsFunc g_existsFunc = NULL;
     NSMutableData *storage = [NSMutableData dataWithLength:sizeof(StatusBarOverrideData)];
     StatusBarOverrideData *o = (StatusBarOverrideData *)[storage mutableBytes];
 
-    if (g_existsFunc && g_existsFunc() && g_readFunc) {
-        g_readFunc(o, sizeof(StatusBarOverrideData));
+    if (g_existsBlock && g_existsBlock() && g_readBlock) {
+        g_readBlock(o, sizeof(StatusBarOverrideData));
     }
     // ファイルがなければゼロ初期化のまま返す
     return o;
