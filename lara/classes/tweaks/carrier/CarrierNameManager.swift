@@ -8,7 +8,6 @@ import Foundation
 class CarrierNameManager {
     static let overlayDir = "/var/mobile/Library/Carrier Bundles/Overlay/"
 
-    // 現在のキャリア名を取得（最初に見つかったbundleから）
     static func getCurrentName() -> String? {
         guard let urls = try? FileManager.default.contentsOfDirectory(
             at: URL(fileURLWithPath: overlayDir),
@@ -39,6 +38,8 @@ class CarrierNameManager {
                       from: plistData, format: nil) as? [String: Any]
             else { continue }
 
+            let originalSize = plistData.count
+
             if var images = plist["StatusBarImages"] as? [[String: Any]] {
                 for i in images.indices {
                     images[i]["StatusBarCarrierName"] = newName
@@ -46,16 +47,15 @@ class CarrierNameManager {
                 plist["StatusBarImages"] = images
             }
 
-            // 不要キーを削除（縮小が起きるが lara の vfs はゼロ埋めするので問題なし）
             ["CarrierName", "CarrierBookmarks", "StockSymboli",
              "MyAccountURL", "HomeBundleIdentifier", "MyAccountURLTitle"]
                 .forEach { plist.removeValue(forKey: $0) }
 
-            // addEmptyData 不要：
-            //   - キーを削除しているだけなので新データは必ず縮小
-            //   - vfs_overwritefile は末尾をゼロ埋めするため縮小は安全
-            guard let newData = try? PropertyListSerialization.data(
-                fromPropertyList: plist, format: .binary, options: 0)
+            // vfs_overwritefile は末尾をゼロ埋めするため、
+            // バイナリ plist のパーサーが壊れたファイルと判断しないよう
+            // Cowabunga と同様に addEmptyData でぴったりサイズに合わせる
+            guard let newData = try? addEmptyData(matchingSize: originalSize, to: plist),
+                  newData.count == originalSize
             else { continue }
 
             let result = laramgr.shared.lara_overwritefile(target: url.path, data: newData)
